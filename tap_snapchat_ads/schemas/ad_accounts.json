@@ -54,7 +54,7 @@
       "type": ["null", "string"]
     },
     "agency_representing_client": {
-      "type": ["null", "string"]
+      "type": ["null", "boolean"]
     },
     "client_based_in_country": {
       "type": ["null", "string"]

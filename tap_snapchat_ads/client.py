@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timedelta
 from typing import Any, Callable, Iterable
 
 import requests
+from dateutil import parser
 from singer_sdk.authenticators import BearerTokenAuthenticator
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 from singer_sdk.pagination import BaseAPIPaginator  # noqa: TCH002
@@ -28,6 +30,8 @@ API_VERSION = "v1"
 
 class SnapchatAdsStream(RESTStream):
     """SnapchatAds stream class."""
+    json_key_array = ""     # Override in subclasses
+    json_key_record = ""    # Override in subclasses
 
     @property
     def url_base(self) -> str:
@@ -38,6 +42,22 @@ class SnapchatAdsStream(RESTStream):
 
     # Set this value or override `get_new_paginator`.
     next_page_token_jsonpath = "$.next_page"  # noqa: S105
+    access_token = None
+
+    def get_access_token(self) -> str:
+        """Get the access token."""
+        if not self.access_token:
+            self.access_token = requests.post(
+                REFRESH_URL,
+                data={
+                    "client_id": self.config.get("client_id"),
+                    "client_secret": self.config.get("client_secret"),
+                    "grant_type": "refresh_token",
+                    "refresh_token": self.config.get("refresh_token"),
+                },
+                timeout=60,
+            ).json()["access_token"]
+        return self.access_token
 
     @property
     def authenticator(self) -> BearerTokenAuthenticator:
@@ -46,20 +66,9 @@ class SnapchatAdsStream(RESTStream):
         Returns:
             An authenticator instance.
         """
-        access_token = requests.post(
-            REFRESH_URL,
-            data={
-                "client_id": self.config.get("client_id"),
-                "client_secret": self.config.get("client_secret"),
-                "grant_type": "refresh_token",
-                "refresh_token": self.config.get("refresh_token"),
-            },
-            timeout=60,
-        ).json()["access_token"]
-
         return BearerTokenAuthenticator.create_for_stream(
             self,
-            token=access_token,
+            token=self.get_access_token(),
         )
 
     @property
@@ -126,9 +135,12 @@ class SnapchatAdsStream(RESTStream):
 
         res = response.json()
 
-        data = res.get(self.name, [])
+        data = res.get(self.json_key_array, [])
 
-        yield from extract_jsonpath(self.records_jsonpath, input=data)
+        sub_data = []
+        [sub_data.append(record[self.json_key_record]) for record in data]
+
+        yield from sub_data
 
     def post_process(
         self,
@@ -146,3 +158,4 @@ class SnapchatAdsStream(RESTStream):
         """
         # TODO: Delete this method if not needed.
         return row
+    

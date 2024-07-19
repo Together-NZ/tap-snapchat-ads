@@ -29,8 +29,31 @@
       "type": ["null", "string"],
       "format": "date-time"
     },
-    "spend": {
-      "type": ["null", "integer"]
+    "timeseries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "stats": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "start_time": {
+                "type": ["null", "string"],
+                "format": "date-time"
+              },
+              "end_time": {
+                "type": ["null", "string"],
+                "format": "date-time"
+              },
+              "spend": {
+                "type": ["null", "integer"]
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

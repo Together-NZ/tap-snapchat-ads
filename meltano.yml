@@ -19,12 +19,17 @@ plugins:
       start_date: '2024-01-01T00:00:00Z'
     settings:
     # TODO: To configure using Meltano, declare settings and their types here:
-    - name: username
-    - name: password
-      kind: password
+    - name: client_id
+      kind: string
+      sensitive: true
+    - name: client_secret
+      kind: string
+      sensitive: true
+    - name: refresh_token
+      kind: string
       sensitive: true
     - name: start_date
-      value: '2010-01-01T00:00:00Z'
+      value: '2024-01-01T00:00:00Z'
   loaders:
   - name: target-jsonl
     variant: andyh1203

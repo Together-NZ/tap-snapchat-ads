@@ -39,8 +39,14 @@ class TapSnapchatAds(Tap):
         th.Property(
             "organization_ids",
             th.ArrayType(th.StringType),
-            required=True,
+            required=False,
             description="Organization IDs to replicate",
+        ),
+        th.Property(
+            "adaccount_ids",
+            th.ArrayType(th.StringType),
+            required=False,
+            description="AdAccount IDs to replicate",
         ),
         th.Property(
             "start_date",
@@ -59,7 +65,8 @@ class TapSnapchatAds(Tap):
             streams.OrganizationsStream(self),
             streams.FundingSourcesStream(self),
             # streams.BillingCentersStream(self),
-            # streams.AdAccountsStream(self),
+            streams.AdAccountsStream(self),
+            streams.AdAccountsStatsDailyStream(self),
         ]
 
 
