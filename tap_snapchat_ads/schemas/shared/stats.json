@@ -383,7 +383,7 @@
       "type": ["null", "integer"]
     },
     "swipe_up_percent": {
-      "type": ["null", "integer"]
+      "type": ["null", "number"]
     },
     "swipes": {
       "type": ["null", "integer"]
