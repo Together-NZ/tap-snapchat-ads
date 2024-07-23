@@ -312,8 +312,6 @@ class SnapchatAdsStream(RESTStream):
         Yields:
             Each record from the source.
         """
-        response.raise_for_status()
-
         res = response.json()
 
         data = res.get(self.json_key_array, [])
@@ -359,16 +357,24 @@ class SnapchatStatsStream(SnapchatAdsStream):
 
         def has_more(self, response: requests.Response) -> bool:
             """Return True if there are more records."""
-            arr = response.json().get(self.json_key_array)
+            try:
+                arr = response.json().get(self.json_key_array, [])
+                if not arr:
+                    return False
 
-            if not arr:
+                record = arr[0].get(self.json_key_record, {})
+                end_time = record.get("end_time")
+                if not end_time:
+                    return False
+
+                tz = pendulum.timezone("UTC")
+                end_time_dt = parse(end_time).astimezone(tz)
+
+                return end_time_dt < datetime.now(tz)
+
+            except (KeyError, ValueError, TypeError):
                 return False
 
-            record = arr[0].get(self.json_key_record)
-            end_time = record.get("end_time")
-
-            tz = pendulum.timezone("UTC")
-            return not timedelta(days=1) < datetime.now(tz=tz) - parse(end_time)
 
     def parse_response(self, response: requests.Response) -> t.Iterable[dict[str, Any]]:
         """Parse the response and return an iterator of result records."""
