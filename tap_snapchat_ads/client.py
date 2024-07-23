@@ -7,6 +7,7 @@ import sys
 import typing as t
 from datetime import UTC, datetime, timedelta
 from typing import Any, Callable, Iterable
+import urllib.parse
 
 import backoff
 import pendulum
@@ -38,6 +39,7 @@ class Server5xxError(Exception):
 
 class Server429Error(Exception):
     """429 Too Many Requests. You're requesting too many kittens! Slow down!"""
+
 
 class SnapchatError(Exception):
     """Base class for Snapchat errors."""
@@ -137,6 +139,7 @@ def get_exception_for_error_code(status_code):
         "raise_exception", SnapchatError
     )
 
+
 def raise_for_error(response):
     """Error message example:
     {
@@ -209,7 +212,10 @@ class SnapchatAdsStream(RESTStream):
     )
     def get_access_token(self) -> str:
         """Get the access token."""
-        if SnapchatAdsStream.__access_token is not None and SnapchatAdsStream.__expires > datetime.now(UTC):
+        if (
+            SnapchatAdsStream.__access_token is not None
+            and SnapchatAdsStream.__expires > datetime.now(UTC)
+        ):
             return SnapchatAdsStream.__access_token
         response = requests.post(
             REFRESH_URL,
@@ -287,7 +293,7 @@ class SnapchatAdsStream(RESTStream):
             HTTP headers and authenticator.
         """
         http_method = self.rest_method
-        if next_page_token:
+        if urllib.parse.urlparse(next_page_token).scheme in ["http", "https"]:
             url = next_page_token
         else:
             url: str = self.get_url(context)
@@ -347,6 +353,7 @@ class SnapchatStatsStream(SnapchatAdsStream):
 
         def get_next(self, response: requests.Response) -> TPageToken | None:
             """Return the next page URL."""
+            super().get_next(response)
             arr = response.json().get(self.json_key_array)
 
             if not arr:
@@ -374,7 +381,6 @@ class SnapchatStatsStream(SnapchatAdsStream):
 
             except (KeyError, ValueError, TypeError):
                 return False
-
 
     def parse_response(self, response: requests.Response) -> t.Iterable[dict[str, Any]]:
         """Parse the response and return an iterator of result records."""
