@@ -16,9 +16,8 @@ plugins:
     - about
     - stream-maps
     config:
-      start_date: '2024-07-01T00:00:00Z'
+      start_date: '2024-07-20T00:00:00Z'
     settings:
-    # TODO: To configure using Meltano, declare settings and their types here:
     - name: client_id
       kind: string
       sensitive: true

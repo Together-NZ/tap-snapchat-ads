@@ -1,4 +1,4 @@
-ALL_STAT_FIELDS = [
+ALL_STAT_FIELDS = [  # noqa: D100
     "android_installs",
     "attachment_avg_view_time_millis",
     "attachment_impressions",

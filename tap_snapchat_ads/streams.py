@@ -4,13 +4,6 @@ from __future__ import annotations
 
 import sys
 import typing as t
-from datetime import datetime, timedelta
-
-import pendulum
-from dateutil.parser import parse
-from singer_sdk import typing as th  # JSON Schema typing helpers
-from singer_sdk.helpers.jsonpath import extract_jsonpath
-from singer_sdk.pagination import BaseAPIPaginator
 
 from tap_snapchat_ads.client import SnapchatAdsStream, SnapchatStatsStream
 
@@ -19,17 +12,15 @@ if sys.version_info >= (3, 9):
 else:
     import importlib_resources
 
-from typing import Any, Optional
+from typing import Any
 
 from tap_snapchat_ads.fields import ALL_STAT_FIELDS
 
 if t.TYPE_CHECKING:
-    from requests import Response
+    from singer_sdk.pagination import BaseAPIPaginator
 
-# TODO: Delete this is if not using json files for schema definition
+
 SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
-# TODO: - Override `UsersStream` and `GroupsStream` with your own stream definition.
-#       - Copy-paste as many times as needed to create multiple stream types.
 
 
 def remove_invalid_hourly_metrics(metrics: list[str]) -> list[str]:
@@ -64,7 +55,7 @@ class OrganizationsStream(SnapchatAdsStream):
             if org["id"] in selected_org_ids:
                 yield org
 
-    def get_child_context(self, record: dict, context: dict | None) -> dict | None:
+    def get_child_context(self, record: dict, context: dict | None) -> dict | None:  # noqa: ARG002
         """Return a context dictionary for a child stream."""
         return {
             "_sdc_org_id": record["id"],
@@ -106,7 +97,6 @@ class MembersStream(SnapchatAdsStream):
     parent_stream_type = OrganizationsStream
     path = "/organizations/{_sdc_org_id}/members"
     primary_keys: t.ClassVar[list[str]] = ["id"]
-    # replication_key = "updated_at"
     schema_filepath = SCHEMAS_DIR / "members.json"
 
 
@@ -119,7 +109,6 @@ class RolesStream(SnapchatAdsStream):
     parent_stream_type = OrganizationsStream
     path = "/organizations/{_sdc_org_id}/roles"
     primary_keys: t.ClassVar[list[str]] = ["id"]
-    # replication_key = "updated_at"
     schema_filepath = SCHEMAS_DIR / "roles.json"
 
 
@@ -137,7 +126,7 @@ class AdAccountsStream(SnapchatAdsStream):
 
     def get_child_context(
         self, record: dict, context: dict | None
-    ) -> dict | None:  # noqa: ARG002
+    ) -> dict | None:
         """Return a context dictionary for a child stream."""
         return {
             **context,
@@ -189,13 +178,6 @@ class AdAccountsStatsHourlyStream(SnapchatStatsStream):
     date_window_size = 7
     fields = "spend"
     granularity = "HOUR"
-
-    def get_new_paginator(self) -> BaseAPIPaginator:
-        """Return a new paginator instance."""
-        start_date = self.config.get("start_date")
-        return self.TemporalPaginator(
-            start_date, self.json_key_array, self.json_key_record
-        )
 
 
 class AudienceSegementsStream(SnapchatAdsStream):
@@ -456,7 +438,7 @@ class ProductCatalogsStream(SnapchatAdsStream):
     primary_keys: t.ClassVar[list[str]] = ["id"]
     replication_key = "updated_at"
 
-    schema_filepath = SCHEMAS_DIR / "catalogs.json"
+    schema_filepath = SCHEMAS_DIR / "product_catalogs.json"
 
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
@@ -477,218 +459,3 @@ class ProductSetsStream(SnapchatAdsStream):
     primary_keys: t.ClassVar[list[str]] = ["id"]
     schema_filepath = SCHEMAS_DIR / "product_sets.json"
 
-
-class TargetingAgeGroupsStream(SnapchatAdsStream):
-    """Define targeting age groups stream."""
-
-    name = "targeting_age_groups"
-    targeting_group = "demographics"
-    targeting_type = "age_group"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingGendersStream(SnapchatAdsStream):
-    """Define targeting genders stream."""
-
-    name = "targeting_genders"
-    targeting_group = "demographics"
-    targeting_type = "gender"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingLanguagesStream(SnapchatAdsStream):
-    """Define targeting languages stream."""
-
-    name = "targeting_genders"
-    targeting_group = "demographics"
-    targeting_type = "languages"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingAdvancedDemographicsStream(SnapchatAdsStream):
-    """Define targeting advanced demographics stream."""
-
-    name = "targeting_advanced_demographics"
-    targeting_group = "demographics"
-    targeting_type = "advanced_demographics"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingConnectionTypesStream(SnapchatAdsStream):
-    """Define targeting connection types stream."""
-
-    name = "targeting_connection_types"
-    targeting_group = "device"
-    targeting_type = "connection_type"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingOSTypes(SnapchatAdsStream):
-    """Define targeting os types stream."""
-
-    name = "targeting_os_types"
-    targeting_group = "device"
-    targeting_type = "os_type"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingIOSVersionsStream(SnapchatAdsStream):
-    """Define targeting ios versions stream."""
-
-    name = "targeting_ios_versions"
-    targeting_group = "device"
-    targeting_type = "os_version"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/iOS/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingAndroidVersionsStream(SnapchatAdsStream):
-    """Define targeting android versions stream."""
-
-    name = "targeting_android_versions"
-    targeting_group = "device"
-    targeting_type = "os_version"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/ANDROID/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingCarrierStream(SnapchatAdsStream):
-    """Define targeting carrier stream."""
-
-    name = "targeting_carrier"
-    targeting_group = "device"
-    targeting_type = "carrier"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingDeviceMakesStream(SnapchatAdsStream):
-    """Define targeting device makes stream."""
-
-    name = "targeting_device_makes"
-    targeting_group = "device"
-    targeting_type = "marketing_name"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting.json"
-
-
-class TargetingCountriesStream(SnapchatAdsStream):
-    """Define targeting countries stream."""
-
-    name = "targeting_countries"
-    targeting_group = "geo"
-    targeting_type = "country"
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = f"{targeting_type}"
-    path = f"/targeting/{targeting_group}/{targeting_type}"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting_geo.json"
-
-    def get_child_context(self, record: dict, context: dict | None) -> dict | None:
-        """Return a context dictionary for a child stream."""
-        return {
-            "_sdc_country_id": record["country"]["code2"],
-        }
-
-    def get_records(self, context: dict | None) -> t.Iterable[dict[str, Any]]:
-        """Return a generator of records."""
-        all_countries = super().get_records(context)
-        selected_country_codes = self.config.get("geo_country_codes", [])
-        if len(selected_country_codes) == 0:
-            return
-
-        for adaccount in all_countries:
-            if adaccount["country"]["code2"] in selected_country_codes:
-                yield adaccount
-
-
-class TargetingRegionsStream(SnapchatAdsStream):
-    """Define targeting regions stream."""
-
-    name = "targeting_regions"
-    targeting_group = "geo"
-    targeting_type = "region"
-    parent_stream_type = TargetingCountriesStream
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = "region"
-    path = "/targeting/geo/{_sdc_country_id}/region"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting_geo.json"
-
-
-class TargetingMetrosStream(SnapchatAdsStream):
-    """Define targeting metros stream."""
-
-    name = "targeting_metros"
-    targeting_group = "geo"
-    targeting_type = "metro"
-    parent_stream_type = TargetingCountriesStream
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = "metro"
-    path = "/targeting/geo/{_sdc_country_id}/metro"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting_geo.json"
-
-
-class TargetingPostalCodesStream(SnapchatAdsStream):
-    """Define targeting postalcodes stream."""
-
-    name = "targeting_postal_codes"
-    targeting_group = "geo"
-    targeting_type = "postal_code"
-    parent_stream_type = TargetingCountriesStream
-
-    json_key_array = "targeting_dimensions"
-    json_key_record = "postal_code"
-    path = "/targeting/geo/{_sdc_country_id}/postal_code"
-    primary_keys: t.ClassVar[list[str]] = ["id"]
-    schema_filepath = SCHEMAS_DIR / "shared/targeting_geo.json"

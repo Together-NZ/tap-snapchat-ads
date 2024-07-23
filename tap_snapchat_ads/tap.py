@@ -5,7 +5,6 @@ from __future__ import annotations
 from singer_sdk import Tap
 from singer_sdk import typing as th  # JSON schema typing helpers
 
-# TODO: Import your custom stream types here:
 from tap_snapchat_ads import streams
 
 
@@ -49,17 +48,10 @@ class TapSnapchatAds(Tap):
             description="AdAccount IDs to replicate",
         ),
         th.Property(
-            "geo_country_codes",
-            th.ArrayType(th.StringType),
-            required=False,
-            description="Geotargeting country codes to replicate",
-        ),
-        th.Property(
             "start_date",
             th.DateTimeType,
             description="The earliest record date to sync",
         ),
-        
     ).to_dict()
 
     def discover_streams(self) -> list[streams.SnapchatAdsStream]:
@@ -92,16 +84,7 @@ class TapSnapchatAds(Tap):
             streams.AdStatsDailyStream(self),
             streams.AdStatsHourlyStream(self),
             streams.ProductCatalogsStream(self),
-            streams.ProductSetsStream(self),
-            # streams.TargetingAgeGroupsStream(self),
-            # streams.TargetingGendersStream(self),
-            # streams.TargetingAdvancedDemographicsStream(self),
-            # streams.TargetingCarrierStream(self),
-            # streams.TargetingDeviceMakesStream(self),
-            # streams.TargetingCountriesStream(self),
-            # streams.TargetingRegionsStream(self),
-            # streams.TargetingMetrosStream(self),
-            # streams.TargetingPostalCodesStream(self),
+            streams.ProductSetsStream(self)
         ]
 
 

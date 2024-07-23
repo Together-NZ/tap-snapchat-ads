@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 import typing as t
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from typing import Any, Callable, Iterable
 
 import backoff
 import pendulum
 import requests
-import logging
-from dateutil import parser
 from dateutil.parser import parse
 from requests.exceptions import ConnectionError, Timeout
 from singer_sdk.authenticators import BearerTokenAuthenticator
-from singer_sdk.helpers.jsonpath import extract_jsonpath
-from singer_sdk.pagination import BaseAPIPaginator, TPageToken  # noqa: TCH002
+from singer_sdk.pagination import BaseAPIPaginator, TPageToken
 from singer_sdk.streams import RESTStream
 
 if sys.version_info >= (3, 9):
@@ -26,7 +24,6 @@ else:
 
 _Auth = Callable[[requests.PreparedRequest], requests.PreparedRequest]
 
-# TODO: Delete this is if not using json files for schema definition
 SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
 
 API_URL = "https://adsapi.snapchat.com/"
@@ -118,7 +115,7 @@ ERROR_CODE_EXCEPTION_MAPPING = {
     },
     418: {
         "raise_exception": SnapchatTeapotError,
-        "message": "The server refuses to brew coffee because it is, permanently, a teapot.",
+        "message": "The server refuses to brew coffee because it is, permanently, a teapot.",  # noqa: E501
     },
     429: {
         "raise_exception": Server429Error,
@@ -140,16 +137,16 @@ def get_exception_for_error_code(status_code):
         "raise_exception", SnapchatError
     )
 
-
-# Error message example:
-# {
-#   "request_status": "ERROR",
-#   "request_id": "5ebc40...",
-#   "debug_message": "Resource can not be found",
-#   "display_message": "We're sorry, but the requested resource is not available at this time",
-#   "error_code": "E3003"
-# }
 def raise_for_error(response):
+    """Error message example:
+    {
+    "request_status": "ERROR",
+    "request_id": "5ebc40...",
+    "debug_message": "Resource can not be found",
+    "display_message": "We're sorry, but the requested resource is not available at this time",
+    "error_code": "E3003"
+    }.
+    """  # noqa: D205, E501
     try:
         response.raise_for_status()
     except (requests.HTTPError, requests.ConnectionError) as error:
@@ -212,8 +209,8 @@ class SnapchatAdsStream(RESTStream):
     )
     def get_access_token(self) -> str:
         """Get the access token."""
-        if self.__access_token is not None and self.__expires > datetime.now(UTC):
-            return self.__access_token
+        if SnapchatAdsStream.__access_token is not None and SnapchatAdsStream.__expires > datetime.now(UTC):
+            return SnapchatAdsStream.__access_token
         response = requests.post(
             REFRESH_URL,
             data={
@@ -225,10 +222,10 @@ class SnapchatAdsStream(RESTStream):
             timeout=60,
         )
         data = response.json()
-        self.__access_token = data.get("access_token")
+        SnapchatAdsStream.__access_token = data.get("access_token")
         expires_in = int(data.get("expires_in", "3600"))
-        self.__expires = datetime.now(UTC) + timedelta(seconds=expires_in)
-        return self.__access_token
+        SnapchatAdsStream.__expires = datetime.now(UTC) + timedelta(seconds=expires_in)
+        return SnapchatAdsStream.__access_token
 
     @property
     def authenticator(self) -> BearerTokenAuthenticator:
@@ -325,23 +322,6 @@ class SnapchatAdsStream(RESTStream):
         [sub_data.append(record[self.json_key_record]) for record in data]
 
         yield from sub_data
-
-    def post_process(
-        self,
-        row: dict,
-        context: dict | None = None,  # noqa: ARG002
-    ) -> dict | None:
-        """As needed, append or transform raw data to match expected structure.
-
-        Args:
-            row: An individual record from the stream.
-            context: The stream context.
-
-        Returns:
-            The updated record dictionary, or ``None`` to skip the record.
-        """
-        # TODO: Delete this method if not needed.
-        return row
 
 
 class SnapchatStatsStream(SnapchatAdsStream):
