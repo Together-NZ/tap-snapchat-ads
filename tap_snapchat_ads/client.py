@@ -5,14 +5,14 @@ from __future__ import annotations
 import logging
 import sys
 import typing as t
+import urllib.parse
 from datetime import UTC, datetime, timedelta
 from typing import Any, Callable, Iterable
-import urllib.parse
 
 import backoff
 import pendulum
 import requests
-from dateutil.parser import parse
+from dateutil.parser import ParserError, parse
 from requests.exceptions import ConnectionError, Timeout
 from singer_sdk.authenticators import BearerTokenAuthenticator
 from singer_sdk.pagination import BaseAPIPaginator, TPageToken
@@ -191,6 +191,9 @@ class SnapchatAdsStream(RESTStream):
     json_key_array = ""  # Override in subclasses
     json_key_record = ""  # Override in subclasses
 
+    id_start_times: t.ClassVar[dict[str, datetime]] = {}
+    id_end_times: t.ClassVar[dict[str, datetime]] = {}
+
     @property
     def url_base(self) -> str:
         """Return the API URL root."""
@@ -345,11 +348,15 @@ class SnapchatStatsStream(SnapchatAdsStream):
             self,
             json_key_array: str,
             json_key_record: str,
+            id_start_dates: dict[str, datetime],
+            id_end_dates: dict[str, datetime],
         ) -> None:
             """Initialize the paginator with a json_key to access the payload."""
             super().__init__(None)
             self.json_key_array = json_key_array
             self.json_key_record = json_key_record
+            self.id_start_dates = id_start_dates
+            self.id_end_dates = id_end_dates
 
         def get_next(self, response: requests.Response) -> TPageToken | None:
             """Return the next page URL."""
@@ -372,6 +379,18 @@ class SnapchatStatsStream(SnapchatAdsStream):
                 record = arr[0].get(self.json_key_record, {})
                 end_time = record.get("end_time")
                 if not end_time:
+                    return False
+
+                start_time = record.get("start_time")
+                try:
+                    if record_id := record.get("id", False):  # noqa: SIM102
+                        if record_id in self.id_end_dates:
+                            return parse(start_time) < self.id_end_dates[record_id]
+
+                except (ParserError, OverflowError, TypeError):
+                    LOGGER.exception(
+                        "Bad end_date from id_end_date dictionary value parsed"
+                    )
                     return False
 
                 tz = pendulum.timezone("UTC")
@@ -411,24 +430,35 @@ class SnapchatStatsStream(SnapchatAdsStream):
     ) -> dict[str, Any]:
         """Return a dictionary of values to be used in URL parameterization."""
         start_time = next_page_token
+        start_time = parse(start_time) if start_time else None
         if start_time is None:
-            start_time = self.get_starting_timestamp(context)
-        else:
-            start_time = parse(start_time)
+            if context.get("_sdc_timeframe_key"):
+                start_time = self.id_start_times[context["_sdc_timeframe_key"]]
+            else:
+                start_time = self.get_starting_timestamp(context)
+
         tz = pendulum.timezone(context["_sdc_timezone"])
         start_time = start_time.astimezone(tz=tz)
         start_time = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
         start_time = start_time.astimezone(pendulum.timezone("UTC"))
 
-        end_time = datetime.now(tz=tz) - timedelta(days=1)
-        min_timeframe = timedelta(days=1)
-        if (end_time - start_time).days < min_timeframe.days:
-            return None
+        end_time = pendulum.now(tz=tz) - timedelta(days=1)
 
         # Truncate the end time to the max allowed timeframe
         max_timeframe = timedelta(days=self.date_window_size)
         if (end_time - start_time).days > max_timeframe.days:
             end_time = start_time + max_timeframe
+
+        if (
+            context.get("_sdc_timeframe_key")
+            and self.id_end_times[context["_sdc_timeframe_key"]]
+            and end_time > self.id_end_times[context["_sdc_timeframe_key"]]
+        ):
+            end_time = self.id_end_times[context["_sdc_timeframe_key"]]
+
+        min_timeframe = timedelta(days=1)
+        if (end_time - start_time).days < min_timeframe.days:
+            return None
 
         end_time = end_time.astimezone(tz=tz)
         end_time = end_time.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -457,4 +487,6 @@ class SnapchatStatsStream(SnapchatAdsStream):
         return self.TemporalPaginator(
             self.json_key_array,
             self.json_key_record,
+            self.id_start_times,
+            self.id_end_times,
         )

@@ -16,7 +16,7 @@ plugins:
     - about
     - stream-maps
     config:
-      start_date: '2024-07-20T00:00:00Z'
+      start_date: '2023-06-01T00:00:00Z'
     settings:
     - name: client_id
       kind: string

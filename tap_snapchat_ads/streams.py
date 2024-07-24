@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 import typing as t
 
+from dateutil.parser import parse
+
 from tap_snapchat_ads.client import SnapchatAdsStream, SnapchatStatsStream
 
 if sys.version_info >= (3, 9):
@@ -15,10 +17,6 @@ else:
 from typing import Any
 
 from tap_snapchat_ads.fields import ALL_STAT_FIELDS
-
-if t.TYPE_CHECKING:
-    from singer_sdk.pagination import BaseAPIPaginator
-
 
 SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
 
@@ -55,7 +53,9 @@ class OrganizationsStream(SnapchatAdsStream):
             if org["id"] in selected_org_ids:
                 yield org
 
-    def get_child_context(self, record: dict, context: dict | None) -> dict | None:  # noqa: ARG002
+    def get_child_context(
+        self, record: dict, context: dict | None
+    ) -> dict | None:  # noqa: ARG002
         """Return a context dictionary for a child stream."""
         return {
             "_sdc_org_id": record["id"],
@@ -124,9 +124,7 @@ class AdAccountsStream(SnapchatAdsStream):
     replication_key = "updated_at"
     schema_filepath = SCHEMAS_DIR / "ad_accounts.json"
 
-    def get_child_context(
-        self, record: dict, context: dict | None
-    ) -> dict | None:
+    def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
         return {
             **context,
@@ -279,8 +277,15 @@ class CampaignsStream(SnapchatAdsStream):
 
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
+        start_time = record.get("start_time")
+        end_time = record.get("end_time")
+        self.id_start_times[record["id"]] = parse(start_time)
+        self.id_end_times[record["id"]] = (
+            parse(end_time) if end_time else parse(start_time)
+        )
         return {
             **context,
+            "_sdc_timeframe_key": record["id"],
             "_sdc_campaign_id": record["id"],
         }
 
@@ -333,8 +338,19 @@ class AdSquadsStream(SnapchatAdsStream):
 
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
+        if record.get("start_time"):
+            start_time = parse(record["start_time"])
+        else:
+            start_time = self.id_start_times.get(context["_sdc_campaign_id"])
+        if record.get("end_time"):
+            end_time = parse(record["end_time"])
+        else:
+            end_time = self.id_end_times.get(context["_sdc_campaign_id"])
+        self.id_start_times[record["id"]] = start_time
+        self.id_end_times[record["id"]] = end_time
         return {
             **context,
+            "_sdc_timeframe_key": record["id"],
             "_sdc_adsquad_id": record["id"],
         }
 
@@ -379,14 +395,21 @@ class AdsStream(SnapchatAdsStream):
     name = "ads"
     json_key_array = "ads"
     json_key_record = "ad"
-    parent_stream_type = AdAccountsStream
-    path = "/adaccounts/{_sdc_adaccount_id}/ads"
+    parent_stream_type = AdSquadsStream
+    path = "/adsquads/{_sdc_adsquad_id}/ads"
     primary_keys: t.ClassVar[list[str]] = ["id"]
     replication_key = "updated_at"
     schema_filepath = SCHEMAS_DIR / "ads.json"
 
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
+        if record.get("created_at"):
+            start_time = parse(record["created_at"])
+        else:
+            start_time = self.id_start_times.get(context["_sdc_timeframe_key"])
+        end_time = self.id_end_times.get(context["_sdc_timeframe_key"])
+        self.id_start_times[record["id"]] = start_time
+        self.id_end_times[record["id"]] = end_time
         return {
             **context,
             "_sdc_ad_id": record["id"],
@@ -458,4 +481,3 @@ class ProductSetsStream(SnapchatAdsStream):
     path = "/catalogs/{_sdc_catalog_id}/product_sets"
     primary_keys: t.ClassVar[list[str]] = ["id"]
     schema_filepath = SCHEMAS_DIR / "product_sets.json"
-
