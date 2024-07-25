@@ -283,7 +283,7 @@ class CampaignsStream(SnapchatAdsStream):
         end_time = parse(end_time) if end_time else None
         return {
             **context,
-            "_sdc_start_time": record["id"],
+            "_sdc_start_time": start_time,
             "_sdc_end_time": end_time,
             "_sdc_campaign_id": record["id"],
         }
