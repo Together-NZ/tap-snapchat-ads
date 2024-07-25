@@ -14,10 +14,14 @@ import pendulum
 import requests
 from dateutil.parser import ParserError, parse
 from requests.exceptions import ConnectionError, Timeout
+from singer_sdk import metrics
 from singer_sdk.authenticators import BearerTokenAuthenticator
 from singer_sdk.pagination import BaseAPIPaginator, TPageToken
 from singer_sdk.streams import RESTStream
 
+if t.TYPE_CHECKING:
+    from requests import Response
+    from singer_sdk.streams.core import Context
 if sys.version_info >= (3, 9):
     import importlib.resources as importlib_resources
 else:
@@ -340,18 +344,44 @@ class SnapchatStatsStream(SnapchatAdsStream):
         """Day paginator class."""
 
         def __init__(
-            self,
-            json_key_array: str,
-            json_key_record: str,
-            id_start_dates: dict[str, datetime],
-            id_end_dates: dict[str, datetime],
+            self, json_key_array: str, json_key_record: str
         ) -> None:
             """Initialize the paginator with a json_key to access the payload."""
             super().__init__(None)
             self.json_key_array = json_key_array
             self.json_key_record = json_key_record
-            self.id_start_dates = id_start_dates
-            self.id_end_dates = id_end_dates
+
+        def advance(self, response: Response, context: Context) -> None:
+            """Get a new page value and advance the current one.
+
+            Args:
+                response: API response object.
+                context: Stream context object.
+
+            Raises:
+                RuntimeError: If a loop in pagination is detected. That is, when two
+                    consecutive pagination tokens are identical.
+            """
+            self._page_count += 1
+
+            if not self.has_more(response, context):
+                self._finished = True
+                return
+
+            new_value = self.get_next(response)
+
+            if new_value and new_value == self._value:
+                msg = (
+                    f"Loop detected in pagination. Pagination token {new_value} is "
+                    "identical to prior token."
+                )
+                raise RuntimeError(msg)
+
+            # Stop if new value None, empty string, 0, etc.
+            if not new_value:
+                self._finished = True
+            else:
+                self._value = new_value
 
         def get_next(self, response: requests.Response) -> TPageToken | None:
             """Return the next page URL."""
@@ -364,7 +394,7 @@ class SnapchatStatsStream(SnapchatAdsStream):
             record = arr[0].get(self.json_key_record)
             return record.get("end_time")
 
-        def has_more(self, response: requests.Response) -> bool:
+        def has_more(self, response: requests.Response, context: Context) -> bool:
             """Return True if there are more records."""
             try:
                 arr = response.json().get(self.json_key_array, [])
@@ -378,9 +408,8 @@ class SnapchatStatsStream(SnapchatAdsStream):
 
                 start_time = record.get("start_time")
                 try:
-                    if record_id := record.get("id", False):  # noqa: SIM102
-                        if record_id in self.id_end_dates:
-                            return parse(start_time) < self.id_end_dates[record_id]
+                    if context_end_time := context.get("_sdc_end_time"):
+                        return parse(start_time) < context_end_time
 
                 except (ParserError, OverflowError, TypeError):
                     return False
@@ -470,11 +499,48 @@ class SnapchatStatsStream(SnapchatAdsStream):
             ),
         }
 
-    def get_new_paginator(self) -> BaseAPIPaginator:
+    def request_records(self, context: Context | None) -> t.Iterable[dict]:
+        """Request records from REST endpoint(s), returning response records.
+
+        If pagination is detected, pages will be recursed automatically.
+
+        Args:
+            context: Stream partition or context dictionary.
+
+        Yields:
+            An item for every record in the response.
+        """
+        paginator = self.get_new_paginator()
+        decorated_request = self.request_decorator(self._request)
+        pages = 0
+
+        with metrics.http_request_counter(self.name, self.path) as request_counter:
+            request_counter.context = context
+
+            while not paginator.finished:
+                prepared_request = self.prepare_request(
+                    context,
+                    next_page_token=paginator.current_value,
+                )
+                resp = decorated_request(prepared_request, context)
+                request_counter.increment()
+                self.update_sync_costs(prepared_request, resp, context)
+                records = iter(self.parse_response(resp))
+                try:
+                    first_record = next(records)
+                except StopIteration:
+                    self.logger.info(
+                        "Pagination stopped after %d pages because no records were "
+                        "found in the last response",
+                        pages,
+                    )
+                    break
+                yield first_record
+                yield from records
+                pages += 1
+
+                paginator.advance(resp, context)
+
+    def get_new_paginator(self) -> TemporalPaginator:
         """Return a new paginator instance."""
-        return self.TemporalPaginator(
-            self.json_key_array,
-            self.json_key_record,
-            self.id_start_times,
-            self.id_end_times,
-        )
+        return self.TemporalPaginator(self.json_key_array, self.json_key_record)
