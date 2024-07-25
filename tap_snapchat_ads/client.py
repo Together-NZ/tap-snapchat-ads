@@ -30,7 +30,6 @@ SCHEMAS_DIR = importlib_resources.files(__package__) / "schemas"
 API_URL = "https://adsapi.snapchat.com/"
 REFRESH_URL = "https://accounts.snapchat.com/login/oauth2/access_token"
 API_VERSION = "v1"
-LOGGER = logging.getLogger(__name__)
 
 
 class Server5xxError(Exception):
@@ -175,7 +174,6 @@ def raise_for_error(response):
                 ),
             )
             error_message = f"{status_code}{error_code}: {debug_message}"
-            LOGGER.exception(error_message)
             if status_code > 500 and status_code != 503:  # noqa: PLR2004
                 exception = Server5xxError
             else:
@@ -388,9 +386,6 @@ class SnapchatStatsStream(SnapchatAdsStream):
                             return parse(start_time) < self.id_end_dates[record_id]
 
                 except (ParserError, OverflowError, TypeError):
-                    LOGGER.exception(
-                        "Bad end_date from id_end_date dictionary value parsed"
-                    )
                     return False
 
                 tz = pendulum.timezone("UTC")
