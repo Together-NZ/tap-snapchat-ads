@@ -189,9 +189,6 @@ class SnapchatAdsStream(RESTStream):
     json_key_array = ""  # Override in subclasses
     json_key_record = ""  # Override in subclasses
 
-    id_start_times: t.ClassVar[dict[str, datetime]] = {}
-    id_end_times: t.ClassVar[dict[str, datetime]] = {}
-
     @property
     def url_base(self) -> str:
         """Return the API URL root."""
@@ -427,8 +424,8 @@ class SnapchatStatsStream(SnapchatAdsStream):
         start_time = next_page_token
         start_time = parse(start_time) if start_time else None
         if start_time is None:
-            if context.get("_sdc_timeframe_key"):
-                start_time = self.id_start_times[context["_sdc_timeframe_key"]]
+            if context.get("_sdc_start_time"):
+                start_time = context["_sdc_start_time"]
             else:
                 start_time = self.get_starting_timestamp(context)
 
@@ -444,12 +441,8 @@ class SnapchatStatsStream(SnapchatAdsStream):
         if (end_time - start_time).days > max_timeframe.days:
             end_time = start_time + max_timeframe
 
-        if (
-            context.get("_sdc_timeframe_key")
-            and self.id_end_times[context["_sdc_timeframe_key"]]
-            and end_time > self.id_end_times[context["_sdc_timeframe_key"]]
-        ):
-            end_time = self.id_end_times[context["_sdc_timeframe_key"]]
+        if context.get("_sdc_end_time") and end_time > context["_sdc_end_time"]:
+            end_time = context["_sdc_end_time"]
 
         min_timeframe = timedelta(days=1)
         if (end_time - start_time).days < min_timeframe.days:

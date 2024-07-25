@@ -279,13 +279,12 @@ class CampaignsStream(SnapchatAdsStream):
         """Return a context dictionary for a child stream."""
         start_time = record.get("start_time")
         end_time = record.get("end_time")
-        self.id_start_times[record["id"]] = parse(start_time)
-        self.id_end_times[record["id"]] = (
-            parse(end_time) if end_time else parse(start_time)
-        )
+        start_time = parse(start_time)
+        end_time = parse(end_time) if end_time else None
         return {
             **context,
-            "_sdc_timeframe_key": record["id"],
+            "_sdc_start_time": record["id"],
+            "_sdc_end_time": end_time,
             "_sdc_campaign_id": record["id"],
         }
 
@@ -341,16 +340,16 @@ class AdSquadsStream(SnapchatAdsStream):
         if record.get("start_time"):
             start_time = parse(record["start_time"])
         else:
-            start_time = self.id_start_times.get(context["_sdc_campaign_id"])
+            start_time = context["_sdc_start_time"]
         if record.get("end_time"):
             end_time = parse(record["end_time"])
         else:
-            end_time = self.id_end_times.get(context["_sdc_campaign_id"])
-        self.id_start_times[record["id"]] = start_time
-        self.id_end_times[record["id"]] = end_time
+            end_time = context.get("_sdc_end_time")
+
         return {
             **context,
-            "_sdc_timeframe_key": record["id"],
+            "_sdc_start_time": start_time,
+            "_sdc_end_time": end_time,
             "_sdc_adsquad_id": record["id"],
         }
 
@@ -406,12 +405,10 @@ class AdsStream(SnapchatAdsStream):
         if record.get("created_at"):
             start_time = parse(record["created_at"])
         else:
-            start_time = self.id_start_times.get(context["_sdc_timeframe_key"])
-        end_time = self.id_end_times.get(context["_sdc_timeframe_key"])
-        self.id_start_times[record["id"]] = start_time
-        self.id_end_times[record["id"]] = end_time
+            start_time = context.get("_sdc_start_time")
         return {
             **context,
+            "_sdc_start_time": start_time,
             "_sdc_ad_id": record["id"],
         }
 
