@@ -451,7 +451,7 @@ class SnapchatStatsStream(SnapchatAdsStream):
         start_time = parse(start_time) if start_time else None
         if start_time is None:
             if context.get(
-                "_sdc_start_time", datetime.min
+                "_sdc_start_time", datetime(1,1,1,tzinfo=pendulum.timezone("UTC"))
             ) > self.get_starting_timestamp(context):
                 start_time = context["_sdc_start_time"]
             else:
