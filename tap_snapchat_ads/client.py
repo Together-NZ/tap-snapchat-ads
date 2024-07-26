@@ -342,9 +342,7 @@ class SnapchatStatsStream(SnapchatAdsStream):
     class TemporalPaginator(BaseAPIPaginator):
         """Day paginator class."""
 
-        def __init__(
-            self, json_key_array: str, json_key_record: str
-        ) -> None:
+        def __init__(self, json_key_array: str, json_key_record: str) -> None:
             """Initialize the paginator with a json_key to access the payload."""
             super().__init__(None)
             self.json_key_array = json_key_array
@@ -452,7 +450,9 @@ class SnapchatStatsStream(SnapchatAdsStream):
         start_time = next_page_token
         start_time = parse(start_time) if start_time else None
         if start_time is None:
-            if context.get("_sdc_start_time"):
+            if context.get(
+                "_sdc_start_time", datetime.min
+            ) > self.get_starting_timestamp(context):
                 start_time = context["_sdc_start_time"]
             else:
                 start_time = self.get_starting_timestamp(context)
