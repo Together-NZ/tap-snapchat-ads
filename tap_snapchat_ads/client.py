@@ -478,6 +478,11 @@ class SnapchatStatsStream(SnapchatAdsStream):
         max_timeframe = timedelta(days=self.date_window_size)
         if (end_time - start_time).days > max_timeframe.days:
             end_time = start_time + max_timeframe
+            
+        # Timeframe needs to be minimum of 1 day
+        min_timeframe = timedelta(days=1)
+        if (end_time - start_time).days < min_timeframe.days:
+            start_time = end_time - min_timeframe
 
         if context.get("_sdc_end_time") and end_time > context["_sdc_end_time"]:
             end_time = context["_sdc_end_time"]

@@ -345,12 +345,12 @@ class AdSquadsStream(SnapchatAdsStream):
     primary_keys: t.ClassVar[list[str]] = ["id"]
     replication_key = "updated_at"
     schema_filepath = SCHEMAS_DIR / "ad_squads.json"
-    
+
     def get_records(self, context: dict | None) -> t.Iterable[dict[str, Any]]:
         """Return a generator of records."""
         all_adsquads = super().get_records(context)
         contextual_start_time = self.get_starting_timestamp(context)
-    
+
         for ad_squad in all_adsquads:
             # Don't sync campaigns that do not fall within the date range
             end_time = parse(ad_squad["end_time"]) if ad_squad.get("end_time") else None
