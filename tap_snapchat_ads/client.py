@@ -399,14 +399,20 @@ class SnapchatStatsStream(SnapchatAdsStream):
                     return False
 
                 record = arr[0].get(self.json_key_record, {})
-                end_time = record.get("end_time")
-                if not end_time:
+
+                min_date = datetime(1, 1, 1, tzinfo=pendulum.timezone("UTC"))
+                start_time = parse(record.get("start_time", min_date))
+                end_time = parse(record.get("end_time", min_date))
+
+                valid_time = start_time and end_time
+
+                min_timeframe = timedelta(days=1)
+                if valid_time and (end_time - start_time).days < min_timeframe.days:
                     return False
 
-                start_time = record.get("start_time")
                 try:
                     if context_end_time := context.get("_sdc_end_time"):
-                        return parse(start_time) < context_end_time
+                        return parse(end_time) < context_end_time
 
                 except (ParserError, OverflowError, TypeError):
                     return False
@@ -447,15 +453,19 @@ class SnapchatStatsStream(SnapchatAdsStream):
         self, context: dict | None, next_page_token: str | None
     ) -> dict[str, Any]:
         """Return a dictionary of values to be used in URL parameterization."""
-        start_time = next_page_token
-        start_time = parse(start_time) if start_time else None
-        if start_time is None:
-            if context.get(
-                "_sdc_start_time", datetime(1,1,1,tzinfo=pendulum.timezone("UTC"))
-            ) > self.get_starting_timestamp(context):
-                start_time = context["_sdc_start_time"]
-            else:
-                start_time = self.get_starting_timestamp(context)
+        next_page_start_time = next_page_token
+
+        min_date = datetime(1, 1, 1, tzinfo=pendulum.timezone("UTC"))
+        next_page_start_time = (
+            parse(next_page_start_time) if next_page_start_time else min_date
+        )
+
+        contexual_start_time = context.get("_sdc_start_time", min_date)
+        replication_start_time = self.get_starting_timestamp(context)
+
+        start_time = max(
+            next_page_start_time, contexual_start_time, replication_start_time
+        )
 
         tz = pendulum.timezone(context["_sdc_timezone"])
         start_time = start_time.astimezone(tz=tz)
@@ -471,10 +481,6 @@ class SnapchatStatsStream(SnapchatAdsStream):
 
         if context.get("_sdc_end_time") and end_time > context["_sdc_end_time"]:
             end_time = context["_sdc_end_time"]
-
-        min_timeframe = timedelta(days=1)
-        if (end_time - start_time).days < min_timeframe.days:
-            return None
 
         end_time = end_time.astimezone(tz=tz)
         end_time = end_time.replace(hour=0, minute=0, second=0, microsecond=0)

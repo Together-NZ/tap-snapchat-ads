@@ -127,7 +127,6 @@ class AdAccountsStream(SnapchatAdsStream):
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
         return {
-            **context,
             "_sdc_timezone": record["timezone"],
             "_sdc_adaccount_id": record["id"],
         }
@@ -206,7 +205,7 @@ class PixelsStream(SnapchatAdsStream):
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
         return {
-            **context,
+            "_sdc_timezone": context["_sdc_timezone"],
             "_sdc_pixel_id": record["id"],
         }
 
@@ -275,6 +274,18 @@ class CampaignsStream(SnapchatAdsStream):
     replication_key = "updated_at"
     schema_filepath = SCHEMAS_DIR / "campaigns.json"
 
+    def get_records(self, context: dict | None) -> t.Iterable[dict[str, Any]]:
+        """Return a generator of records."""
+        all_campaigns = super().get_records(context)
+        contextual_start_time = self.get_starting_timestamp(context)
+
+        for campaign in all_campaigns:
+            # Don't sync campaigns that do not fall within the date range
+            end_time = parse(campaign["end_time"]) if campaign.get("end_time") else None
+            if end_time and end_time < contextual_start_time:
+                continue
+            yield campaign
+
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
         start_time = record.get("start_time")
@@ -282,7 +293,7 @@ class CampaignsStream(SnapchatAdsStream):
         start_time = parse(start_time)
         end_time = parse(end_time) if end_time else None
         return {
-            **context,
+            "_sdc_timezone": context["_sdc_timezone"],
             "_sdc_start_time": start_time,
             "_sdc_end_time": end_time,
             "_sdc_campaign_id": record["id"],
@@ -334,6 +345,18 @@ class AdSquadsStream(SnapchatAdsStream):
     primary_keys: t.ClassVar[list[str]] = ["id"]
     replication_key = "updated_at"
     schema_filepath = SCHEMAS_DIR / "ad_squads.json"
+    
+    def get_records(self, context: dict | None) -> t.Iterable[dict[str, Any]]:
+        """Return a generator of records."""
+        all_adsquads = super().get_records(context)
+        contextual_start_time = self.get_starting_timestamp(context)
+    
+        for ad_squad in all_adsquads:
+            # Don't sync campaigns that do not fall within the date range
+            end_time = parse(ad_squad["end_time"]) if ad_squad.get("end_time") else None
+            if end_time and end_time < contextual_start_time:
+                continue
+            yield ad_squad
 
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
@@ -347,7 +370,7 @@ class AdSquadsStream(SnapchatAdsStream):
             end_time = context.get("_sdc_end_time")
 
         return {
-            **context,
+            "_sdc_timezone": context["_sdc_timezone"],
             "_sdc_start_time": start_time,
             "_sdc_end_time": end_time,
             "_sdc_adsquad_id": record["id"],
@@ -407,7 +430,7 @@ class AdsStream(SnapchatAdsStream):
         else:
             start_time = context.get("_sdc_start_time")
         return {
-            **context,
+            "_sdc_timezone": context["_sdc_timezone"],
             "_sdc_start_time": start_time,
             "_sdc_ad_id": record["id"],
         }
@@ -463,7 +486,6 @@ class ProductCatalogsStream(SnapchatAdsStream):
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
         return {
-            **context,
             "_sdc_catalog_id": record["id"],
         }
 
