@@ -432,6 +432,7 @@ class AdsStream(SnapchatAdsStream):
         return {
             "_sdc_timezone": context["_sdc_timezone"],
             "_sdc_start_time": start_time,
+            "_sdc_end_time": context["_sdc_end_time"],
             "_sdc_ad_id": record["id"],
         }
 
