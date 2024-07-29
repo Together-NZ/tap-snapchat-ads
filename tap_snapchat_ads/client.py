@@ -479,10 +479,6 @@ class SnapchatStatsStream(SnapchatAdsStream):
         if (end_time - start_time).days > max_timeframe.days:
             end_time = start_time + max_timeframe
 
-        # Timeframe needs to be minimum of 1 day
-        min_timeframe = timedelta(days=1)
-        if (end_time - start_time).days < min_timeframe.days:
-            start_time = end_time - min_timeframe
 
         if context.get("_sdc_end_time") and end_time > context["_sdc_end_time"]:
             end_time = context["_sdc_end_time"]
@@ -491,6 +487,10 @@ class SnapchatStatsStream(SnapchatAdsStream):
         end_time = end_time.replace(hour=0, minute=0, second=0, microsecond=0)
         end_time = end_time.astimezone(pendulum.timezone("UTC"))
 
+        # Timeframe needs to be minimum of 1 day
+        min_timeframe = timedelta(days=1)
+        if (end_time - start_time).days < min_timeframe.days:
+            start_time = end_time - min_timeframe
         start_time = start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
         end_time = end_time.strftime("%Y-%m-%dT%H:%M:%SZ")
 
