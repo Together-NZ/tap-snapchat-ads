@@ -200,10 +200,10 @@
       "type": ["null", "string"]
     },
     "impression_goal": {
-      "type": ["null", "string"]
+      "type": ["null", "integer"]
     },
     "reach_goal": {
-      "type": ["null", "string"]
+      "type": ["null", "integer"]
     },
     "reach_and_frequency_status": {
       "type": ["null", "string"]

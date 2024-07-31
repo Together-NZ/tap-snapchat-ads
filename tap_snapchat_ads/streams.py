@@ -53,9 +53,7 @@ class OrganizationsStream(SnapchatAdsStream):
             if org["id"] in selected_org_ids:
                 yield org
 
-    def get_child_context(
-        self, record: dict, context: dict | None
-    ) -> dict | None:  # noqa: ARG002
+    def get_child_context(self, record: dict, context: dict | None) -> dict | None:  # noqa: ARG002
         """Return a context dictionary for a child stream."""
         return {
             "_sdc_org_id": record["id"],
@@ -274,17 +272,14 @@ class CampaignsStream(SnapchatAdsStream):
     replication_key = "updated_at"
     schema_filepath = SCHEMAS_DIR / "campaigns.json"
 
-    def get_records(self, context: dict | None) -> t.Iterable[dict[str, Any]]:
-        """Return a generator of records."""
-        all_campaigns = super().get_records(context)
+    def post_process(
+        self, row: dict[str, Any], context: dict | None = None
+    ) -> dict | None:
         contextual_start_time = self.get_starting_timestamp(context)
-
-        for campaign in all_campaigns:
-            # Don't sync campaigns that do not fall within the date range
-            end_time = parse(campaign["end_time"]) if campaign.get("end_time") else None
-            if end_time and end_time < contextual_start_time:
-                continue
-            yield campaign
+        end_time = parse(row["end_time"]) if row.get("end_time") else None
+        if end_time and end_time < contextual_start_time:
+            return None
+        return row
 
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
@@ -346,17 +341,14 @@ class AdSquadsStream(SnapchatAdsStream):
     replication_key = "updated_at"
     schema_filepath = SCHEMAS_DIR / "ad_squads.json"
 
-    def get_records(self, context: dict | None) -> t.Iterable[dict[str, Any]]:
-        """Return a generator of records."""
-        all_adsquads = super().get_records(context)
+    def post_process(
+        self, row: dict[str, Any], context: dict | None = None
+    ) -> dict | None:
         contextual_start_time = self.get_starting_timestamp(context)
-
-        for ad_squad in all_adsquads:
-            # Don't sync campaigns that do not fall within the date range
-            end_time = parse(ad_squad["end_time"]) if ad_squad.get("end_time") else None
-            if end_time and end_time < contextual_start_time:
-                continue
-            yield ad_squad
+        end_time = parse(row["end_time"]) if row.get("end_time") else None
+        if end_time and end_time < contextual_start_time:
+            return None
+        return row
 
     def get_child_context(self, record: dict, context: dict | None) -> dict | None:
         """Return a context dictionary for a child stream."""
