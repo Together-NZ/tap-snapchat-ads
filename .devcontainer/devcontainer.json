@@ -1,0 +1,23 @@
+{
+	"name": "tap-snapchat-ads",
+	"image": "jamestogethernz/py3-gcloud-dev:latest",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-toolsai.jupyter",
+				"charliermarsh.ruff",
+				"tamasfe.even-better-toml",
+				"eamodio.gitlens",
+				"redhat.vscode-yaml"
+			]
+		}
+	},
+	"mounts": [
+		"source=${env:HOME}/.config/gcloud,target=/home/vscode/.config/gcloud,type=bind,consistency=cached",
+	],
+	"remoteUser": "vscode",
+	"updateRemoteUserUID": true,
+	"features": {
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {}
+	}
+}

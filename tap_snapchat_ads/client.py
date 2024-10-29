@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 import typing as t
 import urllib.parse
-from datetime import UTC, datetime, timedelta
+from datetime import timezone, datetime, timedelta
 from typing import Any, Callable, Iterable
 
 import backoff
@@ -215,7 +215,7 @@ class SnapchatAdsStream(RESTStream):
         """Get the access token."""
         if (
             SnapchatAdsStream.__access_token is not None
-            and SnapchatAdsStream.__expires > datetime.now(UTC)
+            and SnapchatAdsStream.__expires > datetime.now(timezone.utc)
         ):
             return SnapchatAdsStream.__access_token
         response = requests.post(
@@ -231,7 +231,7 @@ class SnapchatAdsStream(RESTStream):
         data = response.json()
         SnapchatAdsStream.__access_token = data.get("access_token")
         expires_in = int(data.get("expires_in", "3600"))
-        SnapchatAdsStream.__expires = datetime.now(UTC) + timedelta(seconds=expires_in)
+        SnapchatAdsStream.__expires = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
         return SnapchatAdsStream.__access_token
 
     @property
