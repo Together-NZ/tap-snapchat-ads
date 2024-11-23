@@ -185,7 +185,6 @@ def raise_for_error(response):
         except (ValueError, TypeError) as err:
             raise SnapchatError(err) from err
 
-
 class SnapchatAdsStream(RESTStream):
     """SnapchatAds stream class."""
 
